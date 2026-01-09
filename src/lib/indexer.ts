@@ -1,4 +1,4 @@
-import { getEmbeddingDimension } from './lm-studio'
+import { getEmbeddingDimension } from './embedding' // Ruri-v3に切り替え
 import { getAllPageIds, getDatabasePages, getPage, getPageContent } from './notion'
 import { splitTextWithMetadata } from './text-splitter'
 import {
@@ -251,9 +251,9 @@ export async function indexPageWithChildren(
   const results: IndexResult[] = []
   let totalChunks = 0
 
-  // 並列処理数（レート制限を考慮して最小限に）
-  const CONCURRENCY = 1 // Notion APIのレート制限回避のため1ページずつ処理
-  const DELAY_BETWEEN_REQUESTS = 400 // リクエスト間の遅延 (400ms = 2.5リクエスト/秒)
+  // 並列処理数（Notion APIのrate limit: 約3リクエスト/秒を考慮）
+  const CONCURRENCY = 3 // 3並列で処理（rate limit考慮）
+  const DELAY_BETWEEN_BATCHES = 1500 // バッチ間の遅延 (1.5秒)
 
   // バッチ処理で並列実行
   for (let i = 0; i < allPageIds.length; i += CONCURRENCY) {
@@ -294,9 +294,9 @@ export async function indexPageWithChildren(
     results.push(...batchResults)
     totalChunks += batchResults.reduce((sum, r) => sum + (r.success ? r.chunksCount : 0), 0)
 
-    // リクエスト間に遅延を入れる（レート制限回避）
+    // バッチ間に遅延を入れる（レート制限回避）
     if (i + CONCURRENCY < allPageIds.length) {
-      await new Promise((resolve) => setTimeout(resolve, DELAY_BETWEEN_REQUESTS))
+      await new Promise((resolve) => setTimeout(resolve, DELAY_BETWEEN_BATCHES))
     }
   }
 

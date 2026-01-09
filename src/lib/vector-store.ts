@@ -1,5 +1,5 @@
 import * as lancedb from '@lancedb/lancedb'
-import { getEmbedding, getEmbeddings } from './lm-studio'
+import { getEmbedding, getEmbeddings } from './embedding' // Ruri-v3に切り替え
 import type { ChunkWithMetadata } from './text-splitter'
 
 /**
@@ -120,7 +120,8 @@ export async function deletePageChunks(pageId: string): Promise<void> {
   if (!tableNames.includes(TABLE_NAME)) return
 
   const table = await db.openTable<VectorDocument>(TABLE_NAME)
-  await table.delete(`pageId = "${pageId}"`)
+  // カラム名をダブルクォートで囲んで大文字小文字を維持
+  await table.delete(`"pageId" = '${pageId}'`)
 }
 
 /**
@@ -166,7 +167,8 @@ export async function searchSimilar(
         chunkIndex: r.chunkIndex,
         totalChunks: r.totalChunks,
         vector: r.vector,
-        createdAt: r.createdAt
+        createdAt: r.createdAt,
+        lastEditedTime: r.lastEditedTime
       },
       score: 1 / (1 + (r._distance || 0))
     }))
@@ -219,7 +221,7 @@ export async function getPageLastEditedTime(pageId: string): Promise<string | nu
   const table = await db.openTable<VectorDocument>(TABLE_NAME)
   const results = await table
     .query()
-    .where(`pageId = "${pageId}"`)
+    .where(`"pageId" = '${pageId}'`)
     .select(['lastEditedTime'])
     .limit(1)
     .toArray()

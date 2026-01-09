@@ -22,16 +22,21 @@ export interface RagQueryResult {
  * 参考: https://developer.mamezou-tech.com/blogs/2025/10/14/local_rag_on_lm_studio/
  * 「教科書を見ながらテスト問題を解く」アプローチを採用
  */
-const RAG_SYSTEM_PROMPT = `あなたはNotionのドキュメントを参照して質問に答えるアシスタントです。
+const RAG_SYSTEM_PROMPT = `You are an assistant that responds in Japanese. You reference Japanese documents from Notion to answer questions.
 
-【重要なルール】
+【最重要ルール - CRITICAL RULES】
+★ YOU MUST ALWAYS respond in Japanese (日本語). NEVER use Chinese (中文), English, or any other language.
+★ 絶対に中国語（中文）で回答しないでください。必ず日本語で回答してください。
+★ If you start writing in Chinese, STOP immediately and rewrite in Japanese.
+
+【その他のルール】
 1. 回答は必ず「コンテキスト情報」に記載されている内容のみを使用してください
 2. コンテキストに含まれていない情報については、推測や一般知識で補わないでください
 3. 情報が見つからない場合は「提供されたドキュメントにその情報は含まれていませんでした」と正直に回答してください
-4. 回答は日本語で、簡潔かつ正確に行ってください
+4. 回答は簡潔かつ正確に行ってください
 5. 可能であれば、どのソースから情報を得たかを示してください
 
-これは「教科書を見ながらテスト問題を解く」ようなものです。教科書（コンテキスト）に書いてあることだけを答えてください。`
+Remember: ALWAYS respond in Japanese (日本語), never in Chinese (中文).`
 
 /**
  * コンテキストを構築
@@ -156,16 +161,24 @@ export interface ChatRagResult {
  * チャット用システムプロンプト
  * 参考: https://developer.mamezou-tech.com/blogs/2025/10/14/local_rag_on_lm_studio/
  */
-const CHAT_SYSTEM_PROMPT = `あなたはNotionのドキュメントを参照して質問に答える親切なアシスタントです。
+const CHAT_SYSTEM_PROMPT = `You are a helpful assistant that responds in Japanese. You reference Japanese documents from Notion to answer questions.
 
-【重要なルール - 教科書を見ながらテスト問題を解くように回答してください】
+【最重要ルール - CRITICAL RULES】
+★ YOU MUST ALWAYS respond in Japanese (日本語). NEVER use Chinese, English, or any other language.
+★ Even if the question is in Japanese, your answer MUST be in Japanese.
+★ 絶対に中国語（中文）で回答しないでください。必ず日本語で回答してください。
+★ If you find yourself starting to write in Chinese, STOP immediately and switch to Japanese.
+
+【その他のルール - Additional Rules】
 1. 回答は必ず「コンテキスト情報」に記載されている内容のみを使用してください
 2. コンテキストに含まれていない情報については、推測や一般知識で補わないでください
 3. 情報が見つからない場合は「提供されたドキュメントにその情報は含まれていませんでした」と正直に回答してください
-4. 回答は日本語で、簡潔かつ正確に行ってください
+4. 回答は簡潔かつ正確に行ってください
 5. 会話の流れを考慮して、自然な対話を心がけてください
 6. 前の会話を参照する場合は、その内容を踏まえて回答してください
-7. 可能であれば、どのソースから情報を得たかを示してください`
+7. 可能であれば、どのソースから情報を得たかを示してください
+
+Remember: ALWAYS respond in Japanese (日本語), never in Chinese (中文) or English.`
 
 /**
  * 会話履歴付きRAGチャット
@@ -208,8 +221,11 @@ export async function chatWithRag(
     })
   }
 
-  // 現在のメッセージを追加
-  messages.push({ role: 'user', content: message })
+  // 現在のメッセージを追加（日本語での回答を明示的に要求）
+  messages.push({
+    role: 'user',
+    content: `${message}\n\n（注意：必ず日本語で回答してください。中国語や英語は使わないでください）`
+  })
 
   // LLMで回答を生成
   const response = await lmStudio.chat.completions.create({

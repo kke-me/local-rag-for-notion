@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import styled, { keyframes } from 'styled-components'
 import type { ReactNode, FormEvent, KeyboardEvent } from 'react'
 
@@ -599,12 +599,22 @@ export default function Home(): ReactNode {
     fetchIndexStatus()
   }, [])
 
-  // メッセージが追加されたらスクロール
+  // メッセージが追加されたら、またはローディング状態が変わったら最下部にスクロール
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
     }
-  }, [messages])
+  }, [messages, isLoading])
+
+  // スムーズスクロールを実行する関数
+  const scrollToBottom = useCallback(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      })
+    }
+  }, [])
 
   const fetchIndexStatus = async (): Promise<void> => {
     setIsCheckingIndex(true)
@@ -716,6 +726,9 @@ export default function Home(): ReactNode {
     setInput('')
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }])
     setIsLoading(true)
+
+    // 送信後すぐにスクロール
+    setTimeout(() => scrollToBottom(), 100)
 
     abortControllerRef.current = new AbortController()
 
