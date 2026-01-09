@@ -1,0 +1,21 @@
+# Prettierがパーサーを推論できないファイル
+.gitignore
+.prettierignore
+*.svg
+*.ico
+
+# ビルド出力
+.next/
+out/
+node_modules/
+
+# LanceDB データ
+data/
+
+# 環境変数
+.env*
+
+# ロックファイル（package-lock.jsonは除外しない）
+pnpm-lock.yaml
+yarn.lock
+
