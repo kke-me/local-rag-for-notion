@@ -2,6 +2,12 @@ import { generateText, lmStudio } from './lm-studio'
 import { searchSimilar } from './vector-store'
 import type { SearchResult } from './vector-store'
 import type OpenAI from 'openai'
+import {
+  RAG_QUERY_SYSTEM_PROMPT,
+  CHAT_SYSTEM_PROMPT,
+  NO_CONTEXT_MESSAGE,
+  promptHelpers
+} from '@/prompts/system-prompts'
 
 /**
  * RAGクエリの結果
@@ -18,39 +24,17 @@ export interface RagQueryResult {
 }
 
 /**
- * RAGシステムプロンプト
- * 参考: https://developer.mamezou-tech.com/blogs/2025/10/14/local_rag_on_lm_studio/
- * 「教科書を見ながらテスト問題を解く」アプローチを採用
- */
-const RAG_SYSTEM_PROMPT = `You are an assistant that responds in Japanese. You reference Japanese documents from Notion to answer questions.
-
-【最重要ルール - CRITICAL RULES】
-★ YOU MUST ALWAYS respond in Japanese (日本語). NEVER use Chinese (中文), English, or any other language.
-★ 絶対に中国語（中文）で回答しないでください。必ず日本語で回答してください。
-★ If you start writing in Chinese, STOP immediately and rewrite in Japanese.
-
-【その他のルール】
-1. 回答は必ず「コンテキスト情報」に記載されている内容のみを使用してください
-2. コンテキストに含まれていない情報については、推測や一般知識で補わないでください
-3. 情報が見つからない場合は「提供されたドキュメントにその情報は含まれていませんでした」と正直に回答してください
-4. 回答は簡潔かつ正確に行ってください
-5. 可能であれば、どのソースから情報を得たかを示してください
-
-Remember: ALWAYS respond in Japanese (日本語), never in Chinese (中文).`
-
-/**
  * コンテキストを構築
  * 記事の「参考にした文章」の表示方法を参考に、ソース情報を明確に構造化
  */
 function buildContext(results: SearchResult[]): string {
   if (results.length === 0) {
-    return '【注意】関連する情報がドキュメント内に見つかりませんでした。この質問に対して回答できる情報がありません。'
+    return NO_CONTEXT_MESSAGE
   }
 
   const contextParts = results.map((r, i) => {
     const relevancePercent = Math.round(r.score * 100)
-    return `[ソース${i + 1}: ${r.document.pageTitle}] (関連度: ${relevancePercent}%)
-${r.document.content}`
+    return `[ソース${i + 1}: ${r.document.pageTitle}] (関連度: ${relevancePercent}%)\n${r.document.content}`
   })
 
   return contextParts.join('\n\n---\n\n')
@@ -80,17 +64,11 @@ export async function ragQuery(
   const context = buildContext(searchResults)
 
   // プロンプトを構築
-  const prompt = `## コンテキスト情報
-${context}
-
-## 質問
-${query}
-
-## 回答`
+  const prompt = promptHelpers.createRAGQueryPrompt(context, query)
 
   // LLMで回答を生成
   const answer = await generateText(prompt, {
-    systemPrompt: RAG_SYSTEM_PROMPT,
+    systemPrompt: RAG_QUERY_SYSTEM_PROMPT,
     maxTokens,
     temperature
   })
@@ -158,29 +136,6 @@ export interface ChatRagResult {
 }
 
 /**
- * チャット用システムプロンプト
- * 参考: https://developer.mamezou-tech.com/blogs/2025/10/14/local_rag_on_lm_studio/
- */
-const CHAT_SYSTEM_PROMPT = `You are a helpful assistant that responds in Japanese. You reference Japanese documents from Notion to answer questions.
-
-【最重要ルール - CRITICAL RULES】
-★ YOU MUST ALWAYS respond in Japanese (日本語). NEVER use Chinese, English, or any other language.
-★ Even if the question is in Japanese, your answer MUST be in Japanese.
-★ 絶対に中国語（中文）で回答しないでください。必ず日本語で回答してください。
-★ If you find yourself starting to write in Chinese, STOP immediately and switch to Japanese.
-
-【その他のルール - Additional Rules】
-1. 回答は必ず「コンテキスト情報」に記載されている内容のみを使用してください
-2. コンテキストに含まれていない情報については、推測や一般知識で補わないでください
-3. 情報が見つからない場合は「提供されたドキュメントにその情報は含まれていませんでした」と正直に回答してください
-4. 回答は簡潔かつ正確に行ってください
-5. 会話の流れを考慮して、自然な対話を心がけてください
-6. 前の会話を参照する場合は、その内容を踏まえて回答してください
-7. 可能であれば、どのソースから情報を得たかを示してください
-
-Remember: ALWAYS respond in Japanese (日本語), never in Chinese (中文) or English.`
-
-/**
  * 会話履歴付きRAGチャット
  */
 export async function chatWithRag(
@@ -193,7 +148,7 @@ export async function chatWithRag(
     temperature?: number
   }
 ): Promise<ChatRagResult> {
-  const { maxSources = 5, minScore = 0.2, maxTokens = 1024, temperature = 0.5 } = options || {}
+  const { maxSources = 5, minScore = 0.2, maxTokens = 1024, temperature = 0.3 } = options || {}
 
   // 類似度検索でコンテキストを取得
   const searchResults = await searchSimilar(message, {
@@ -209,7 +164,7 @@ export async function chatWithRag(
     { role: 'system', content: CHAT_SYSTEM_PROMPT },
     {
       role: 'system',
-      content: `## 参照可能なコンテキスト情報\n${context}`
+      content: promptHelpers.createContextSystemMessage(context)
     }
   ]
 
@@ -224,7 +179,7 @@ export async function chatWithRag(
   // 現在のメッセージを追加（日本語での回答を明示的に要求）
   messages.push({
     role: 'user',
-    content: `${message}\n\n（注意：必ず日本語で回答してください。中国語や英語は使わないでください）`
+    content: promptHelpers.createUserMessageWithReminder(message)
   })
 
   // LLMで回答を生成

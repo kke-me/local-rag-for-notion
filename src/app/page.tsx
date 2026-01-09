@@ -270,17 +270,19 @@ const InputContainer = styled.form`
 
 const Input = styled.textarea`
   flex: 1;
-  padding: 1rem;
+  padding: 0.625rem 1rem;
   border-radius: 0.75rem;
   border: 1px solid var(--border-color);
   background: var(--card-bg);
   color: white;
   font-size: 1rem;
   resize: none;
-  min-height: 56px;
   max-height: 200px;
   font-family: inherit;
   overflow-y: auto;
+  line-height: 1.5;
+  box-sizing: border-box;
+  field-sizing: content;
 
   &::placeholder {
     color: var(--text-muted);
@@ -588,6 +590,7 @@ export default function Home(): ReactNode {
   const [isCheckingIndex, setIsCheckingIndex] = useState(true)
   const [toasts, setToasts] = useState<Toast[]>([])
   const chatContainerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const toastIdRef = useRef(0)
 
@@ -964,12 +967,12 @@ export default function Home(): ReactNode {
 
         <InputContainer onSubmit={handleSubmit}>
           <Input
+            ref={inputRef}
             value={input}
             onChange={(e): void => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="質問を入力... (Cmd/Ctrl+Enter で送信)"
             disabled={isLoading}
-            rows={1}
           />
           {isLoading ? (
             <AbortButton type="button" onClick={handleAbort}>
