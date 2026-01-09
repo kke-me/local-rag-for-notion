@@ -234,7 +234,7 @@ export function extractTextFromProperties(page: PageObjectResponse): string {
         // relationは関連ページのIDのみなので、数だけ表示
         value = `${(prop.relation as Array<{ id: string }>).length}件の関連`
         break
-      case 'rollup':
+      case 'rollup': {
         // rollupは集計結果
         const rollup = prop.rollup as { type: string; number?: number; array?: unknown[] }
         if (rollup.type === 'number' && rollup.number !== undefined) {
@@ -243,7 +243,8 @@ export function extractTextFromProperties(page: PageObjectResponse): string {
           value = `${rollup.array.length}件`
         }
         break
-      case 'formula':
+      }
+      case 'formula': {
         // formulaは計算結果
         const formula = prop.formula as {
           type: string
@@ -262,6 +263,7 @@ export function extractTextFromProperties(page: PageObjectResponse): string {
           value = formula.date.start
         }
         break
+      }
       default:
         // その他のプロパティタイプはスキップ
         break
